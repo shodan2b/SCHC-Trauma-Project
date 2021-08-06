@@ -1,0 +1,83 @@
+---
+title: "Features 1 "
+output: html_notebook
+---
+##import data
+
+```{r}
+Pediatric_Data_Under_18 <- read.csv("Kids_2017.csv", stringsAsFactors = TRUE)
+```
+
+## libraries
+
+```{r}
+library(dplyr)
+library(magrittr)
+```
+
+```{r}
+Var1 <- Pediatric_Data_Under_18 %>% 
+  mutate(ethnicity = factor(ETHNICITY, labels = c("Not Recorded", "Hispanic or Latino", "Non-Hispanic/Latino")),
+         sex = factor(SEX, labels = c("No Recorded", "Female", "Male")), 
+         respiratory_assistance = factor(RESPIRATORYASSISTANCE, levels = c(1,2), labels = c("No Respiratory Assistance", "Respiratory Assistance")),
+         supplemental_oxygen = factor(SUPPLEMENTALOXYGEN, levels = c(1,2), labels = c("No Supplemental Oxygen", "Supplemented Oxygen")),
+         Trauma_Center_Criteria_Score_GCS_13 = factor(TCCGCSLE13, labels = c("Not Recorded","No","Yes")),
+         Trauma_Center_Criteria_Multiple_Long_Bone_Fractures = factor(TCCLONGBONE, labels = c("Not Recorded","No","Yes")),
+         Trauma_Center_Criteria_Chest_Wall_Instability = factor(TCCCHEST, labels = c("Not Recorded","No","Yes")),
+         Trauma_Center_Criteria_Pelvic_Fracture = factor(TCCPELVIC, labels = c("Not Recorded","No","Yes")),
+         Trauma_Center_Criteria_Paralysis = factor(TCCPARALYSIS, labels = c("Not Recorded","No","Yes")),
+         Trauma_Center_Criteria_Penetration_Injury = factor(TCCPEN, labels = c("Not Recorded","No","Yes")),
+         GCS_Qualified_Intubation = factor(GCSQ_INTUBATED, labels = c("Not Recorded","No","Yes")),
+         GCS_Qualified_Sedated_Paralyzed = factor(GCSQ_SEDATEDPARALYZED, labels = c("Not Recorded","No","Yes")),
+         Comorbidity_Anticoagulent_Use = factor(CC_ANTICOAGULANT, labels = c("Not Recorded","No","Yes")),
+         Comorbidity_Bleeding_Disorder = factor(CC_BLEEDING, labels = c("Not Recorded","No","Yes")),
+         Comorbidity_Diabetes = factor(CC_DIABETES, labels = c("Not Recorded","No","Yes")),
+         Comorbidity_Chemotherapy = factor(CC_CHEMO, labels = c("Not Recorded","No","Yes")),
+         Comorbidity_Disseminated_Cancer = factor(CC_DISCANCER, labels = c("Not Recorded","No","Yes")),
+         Comorbidity_Smoker = factor(CC_SMOKING, labels = c("Not Recorded","No","Yes")),
+         Comorbidity_Renal_Failure = factor(CC_RENAL, labels = c("Not Recorded","No","Yes")),
+         TBI_Midline_Shift = factor(TBIMIDLINESHIFT, labels = c("Not Recorded", "No", "Not Imaged","Yes")),
+         ICPEV_Drain = factor(ICPEVDRAIN, labels = c("Not Recorded","No","Yes")),
+         IC_Perechemal_Drain = factor(ICPPARENCH, labels = c("Not Recorded","No","Yes")),
+         Embolism_Site_Liver = factor(ESLIVER, labels = c("Not Recorded","No","Yes")),
+         Embolism_Site_Spleen = factor(ESSPLEEN, labels = c("Not Recorded","No","Yes")),
+         Embolism_Site_Kidney = factor(ESKIDNEY, labels = c("Not Recorded","No","Yes")),
+         Embolism_Site_Pelvis = factor(ESPELVIS, labels = c("Not Recorded","No","Yes")),
+         Embolism_Site_Vascular = factor(ESVASCULAR, labels = c("Not Recorded","No","Yes")),
+         Embolism_Site_Aorta = factor(ESAORTA, labels = c("Not Recorded","No","Yes")),
+         Hospital_Complication_DVT = factor(HC_DVTHROMBOSIS, labels = c("Not Recorded","No","Yes")),
+         Hospital_Complication_VTE = factor(HC_EMBOLISM, labels = c("Not Recorded","No","Yes"))) %>%
+        
+         
+  select(sex,AGEYEARS,ASIAN,PACIFICISLANDER,RACEOTHER,AMERICANINDIAN,BLACK,WHITE,ethnicity,Trauma_Center_Criteria_Score_GCS_13,Trauma_Center_Criteria_Multiple_Long_Bone_Fractures,Trauma_Center_Criteria_Chest_Wall_Instability,Trauma_Center_Criteria_Pelvic_Fracture,Trauma_Center_Criteria_Paralysis,Trauma_Center_Criteria_Penetration_Injury,PULSERATE,PULSEOXIMETRY,TEMPERATURE,respiratory_assistance,RESPIRATORYRATE,supplemental_oxygen,HEIGHT,WEIGHT,TOTALGCS,GCS_Qualified_Intubation,GCS_Qualified_Sedated_Paralyzed,Comorbidity_Anticoagulent_Use,Comorbidity_Bleeding_Disorder,Comorbidity_Diabetes,Comorbidity_Chemotherapy,Comorbidity_Disseminated_Cancer,Comorbidity_Smoker,Comorbidity_Renal_Failure,TBIHIGHESTTOTALGCS,PMGCSQ_SEDATEDPARALYZED,PMGCSQ_INTUBATED,TBI_Midline_Shift,ICPEV_Drain,ICPPARENCH,VTEPROPHYLAXISTYPE,VTEProphylaxisMins,VTEProphylaxisDays, VTEPROPHYLAXISTYPE,BLOOD4HOURS,BLOOD24HOURS,PLASMA4HOURS,PLASMA24HOURS, PLATELETS4HOURS,PLATELETS24HOURS,Embolism_Site_Liver,ESSPLEEN,Embolism_Site_Kidney,Embolism_Site_Pelvis,Embolism_Site_Vascular,Embolism_Site_Aorta,HMRRHGCTRLSURGTYPE,Hospital_Complication_DVT,Hospital_Complication_VTE) 
+```
+
+```{r}
+summary(Var1) 
+#write.csv(Pediatric_Variables1, "Pediatric_Variables1.csv")
+```
+
+
+
+```{r}
+Var2 <- Var1 %>%
+  mutate( VTE_prophylaxis_type = factor(VTEPROPHYLAXISTYPE, levels = c(1,5,6,7,8,9,10,11), labels("Heparin","None","LMWH","Direct Thrombin Inhibitor", "Xa Inhibitor", "Coumadin", "Other", "Unfractionated Heparin")), 
+          Hemorrhage_Surgery_Type = factor(HMRRHGCTRLSURGTYPE, levels = c(1,2,3,4,5,6,7,8,9), labels = c("None","Laparotomy","Thoracotomy","Sternotomy","Extremity","Neck","Traumatic Amputation","Other Skin/Soft Tissue","Extraperitoneal Pelvic Packing"))) %>%
+  select(-VTEPROPHYLAXISTYPE, -HMRRHGCTRLSURGTYPE)
+```
+
+
+```{r}
+summary(Var2)
+```
+## Continuous variables with min value = 0
+
+###Example Pulse rate
+
+```{r}
+PR0 <- Var2[Var2$PULSERATE == 0 & is.na(Var2$PULSERATE) == FALSE, ]
+
+```
+
+
+
