@@ -1,0 +1,223 @@
+---
+title: "Lasso regression"
+output: html_notebook
+---
+
+## libraries
+
+```{r}
+library(glmnet)
+library(dplyr)
+library(caret)
+library(pROC)
+```
+
+## load data
+
+```{r}
+data1 <- read.csv("ImputedData3.csv", stringsAsFactors = T)[,-1]
+data <- data1 %>%
+  select(-height, -weight)
+```
+
+## check colinearity of continuous variables
+
+```{r}
+cont <- sapply(data, is.numeric)
+cont1 <- which(cont == "TRUE")
+contdata1 <- data[,cont1]
+ct <- cor(contdata1)
+ct
+```
+
+
+## divide into train and test sets
+```{r}
+idx <- createDataPartition(data$response, times = 1, p =.66, list = F)
+train <- data[idx,]
+test <- data[-idx, ]
+write.csv(train, file = "trainImputedData4.csv")
+write.csv(test, file = "testImputedData4.csv")
+```
+
+## simple logistic regression model
+
+```{r}
+ctrl <- trainControl(method = "cv", number = 5, summaryFunction = twoClassSummary, classProbs = TRUE, verboseIter = F, returnResamp = "final")
+
+mdl.lr <- train(response ~., data = train, method = "glm", metric = "ROC", maximize = TRUE, trControl = ctrl)
+
+```
+
+
+```{r}
+summary(mdl.lr)
+```
+
+
+
+## configure for glmnet
+```{r}
+factors <- sapply(train,is.factor)
+continuous <- sapply(train, is.numeric)
+train.factors <- train[,factors]
+train.continuous <- train[,continuous]
+train.response <- ifelse(train.factors$response == "Yes", 1, 0)
+train.features <- model.matrix(response ~., train.factors) [,-1]
+train.glm <- as.matrix(cbind(train.features, train.continuous))
+
+```
+
+## determine lambda for lasso model (only factors); predicting absence of DVT
+
+```{r}
+set.seed(123) 
+mdl.lambda <- cv.glmnet(x =train.glm, y = train.response, alpha = 1, family = "binomial")
+```
+
+```{r}
+plot(mdl.lambda)
+```
+
+```{r}
+coef(mdl.lambda, mdl.lambda$lambda.min)
+```
+
+
+```{r}
+coef(mdl.lambda, mdl.lambda$lambda.1se)
+```
+using lambda.1se, 18 non-zero coeficients
+
+## lasso model
+
+```{r}
+train.select <- train %>%
+  select(supplemental_oxygen, ICPEVDRAIN, ICPPARENCH, hemorrhage_surgery_type, spinal_cord_injury,fracture_spinal_vertebra, fracture_pelvis, neurosurg_tbi, major_thoracic_surgery, major_abdominal_surgery, major_vascular_surgery,intubation, central_line, transfusion, AGEYEARS, totalgcs, response)
+
+```
+
+```{r}
+ctrl <- trainControl(method = "cv", number = 5, summaryFunction = twoClassSummary, classProbs = TRUE, verboseIter = F, returnResamp = "final")
+
+mdl.glm <- train(response ~., data = train.select, method = "glm", metric = "ROC", maximize = TRUE, trControl = ctrl)
+```
+
+```{r}
+Z<- summary(mdl.glm)
+Z
+
+```
+
+The AICs are are almost identical but the lasso model is more parsimonious so it provides the better explanation.  
+
+## look for singularities
+
+```{r}
+mdl.glm$finalModel$rank
+length(mdl.glm$finalModel$coefficients)
+
+inspect<- alias(mdl.glm$finalModel)
+inspect$Complete
+```
+No singularities
+
+##Odds ratios and 95% CI for lasso regression
+```{r}
+X<- exp(coef(mdl.glm$finalModel))
+Y<- exp(confint(mdl.glm$finalModel))
+P <-data.frame(Z$coefficients[,4])
+OR <- signif(cbind(MLE=X,Y,pValue = P), 3)
+write.csv(OR, file = "Multivariate Odds ratios and CI.csv")
+OR
+```
+
+## parsimonious model removing 2 features from lasso regression
+```{r}
+train.select2 <- train.select %>%
+  select(-hemorrhage_surgery_type, -fracture_spinal_vertebra)
+
+mdl.glm2 <- train(response ~., data = train.select2, method = "glm", metric = "ROC", maximize = TRUE, trControl = ctrl)
+
+Z2 <-summary(mdl.glm2)
+Z2
+
+```
+
+###Odds ratios and 95% CI for lasso regression with 2 additonal features removed
+```{r}
+X2<- exp(coef(mdl.glm2$finalModel))
+Y2<- exp(confint(mdl.glm2$finalModel))
+P2 <-Z2$coefficients[,4]
+OR2 <- signif(cbind(OR=X2,Y2, pValue = P2), 3)
+write.csv(OR2, file = "Multivariate Odds ratios and CI for small Lasso.csv")
+OR2
+```
+
+
+
+
+## comparing three models
+
+
+### simple linear regression model
+```{r}
+lr.pred <- predict(mdl.lr, newdata = test, type = "prob")
+lr.roc <- roc(response = test$response, predictor = lr.pred[,1], auc = T)
+auc(lr.roc)
+
+```
+
+### lasso regression
+
+```{r}
+lasso.pred <- predict(mdl.glm, newdata = test, type = "prob")
+lasso.roc <- roc(response = test$response, predictor = lasso.pred[,1], auc = T)
+auc(lasso.roc)
+
+```
+
+### small lasso regression
+
+```{r}
+lassoSmall.pred <- predict(mdl.glm2, newdata = test, type = "prob")
+lassoSmall.roc <- roc(response = test$response, predictor = lassoSmall.pred[,1], auc = T)
+auc(lassoSmall.roc)
+##saveRDS(lassoSmall.roc, file = "Lasso ROC model")
+```
+
+All 3 of models are comparable based on AUC for ROC.
+
+```{r}
+roc.test(lr.roc, lasso.roc)
+roc.test(lr.roc, lassoSmall.roc)
+```
+The roc for the 3 models are not signifcantly different.
+
+
+## Thresholds for small lasso model 
+```{r}
+coords(lassoSmall.roc, x = "best", best.method = "youden", transpose = T)
+```
+
+### confusion matrix at cutoff
+```{r}
+predResponse <- as.factor(ifelse(lassoSmall.pred[,1] >= .99886166, "No", "Yes"))
+lassoMatrix <- confusionMatrix(predResponse, test$response)
+lassoMatrix
+
+```
+The false negative rate with no information is .15% At threshold for the model, The false negative rate for low risk patients is .023%, an 86% reduction.  8.6% of patients would qualify for treatment. The risk for DVT in the high risk group is 1.27%, an 8.5 fold increase over the a priori rate.
+
+## save small lasso output
+
+```{r}
+saveRDS(mdl.glm2, file = "smallLassoModel.rds")
+saveRDS(lassoSmall.roc, file = "smallLassoRoc.rds")
+saveRDS(lassoMatrix, file = "smallLassoMatrix.rds")
+write.csv(lassoSmall.pred, file = "SmallLassoPredictions.csv")
+write.csv(colnames(train.select2), file = "PredictorsFinalModel.csv")
+```
+
+
+

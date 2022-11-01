@@ -1,0 +1,55 @@
+---
+title: "G BM model in R"
+output: html_notebook
+---
+
+## libraries
+```{r}
+library(h2o)
+library(caret)
+library(pROC)
+library(gbm)
+
+```
+
+## load data
+```{r}
+train <- read.csv("TrainSelectedFeatures.csv", stringsAsFactors = T)[,-1]
+test <- read.csv("testImputedData4.csv", stringsAsFactors = T)[,-1]
+```
+
+```{r}
+train$RESPONSE <- ifelse(train$response == "No", 0, 1)
+train2 <- train[,-16]
+
+test$RESPONSE <- ifelse(test$response == "No", 0, 1)
+test2 <- test[,-34]
+```
+
+
+## model
+
+```{r}
+gbmMdl <- gbm(RESPONSE ~., data = train2, n.trees = 131, shrinkage = .01, n.minobsinnode = 500, cv.folds = 5,  interaction.depth = 10)
+```
+```{r}
+summary(gbmMdl)
+```
+```{r}
+gbmPred <- predict(gbmMdl, newdata = test2, type = "response")
+gbm.roc <- roc(response = test$RESPONSE, predictor = gbmPred, auc = T)
+auc(gbm.roc)
+```
+```{r}
+coords(gbm.roc, x = "best", best.method = "youden", transpose = T)
+```
+
+```{r}
+gbmResponse <- as.factor(ifelse(gbmPred >= .0008159836,"Yes", "No"))
+gbmMatrix <- confusionMatrix(gbmResponse, test$response)
+gbmMatrix
+```
+```{r}
+saveRDS(gbmMdl, file = "gbmMdlR.rds")
+```
+

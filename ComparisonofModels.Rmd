@@ -1,0 +1,137 @@
+---
+title: "Model Comparison"
+output: html_notebook
+---
+
+## libraries
+
+```{r}
+library(pROC)
+library(epiR)
+```
+
+## load roc models
+
+```{r}
+lassoRoc <- readRDS("smallLassoRoc.rds")
+rfRoc <- readRDS("rfROC.rds")
+gbmRoc <- readRDS("gbmROC.rds")
+test <- read.csv("testImputedData4.csv", stringsAsFactors = T)
+```
+
+## ROC curves
+
+```{r}
+graph <- plot(lassoRoc, col = 1, add = F, legacy.axes = T)
+graph <- plot(rfRoc, col = 2, add = T)
+graph <- plot(gbmRoc, col = 3, add = T)
+legend(0.2, 0.5, lty = 1:3, col = 1:3, legend = c("glmL1", "rf", "gbm"), bty = "n" )
+```
+
+## comparison of models by DeLong's test
+
+```{r}
+roc.test(lassoRoc,gbmRoc)
+roc.test(lassoRoc, rfRoc)
+roc.test(gbmRoc, rfRoc)
+```
+By comparison of AUC's both ensembles are statistically better than the L1regression model.  All of the models have very large AUC's
+
+## model comparison by chi square of predictions
+
+```{r}
+LassoMtx <- readRDS("smallLassoMatrix.rds")
+rfMtX <- readRDS("rfConfusMTX.rds")
+gbmMtx <- readRDS("gbmConfusMTX.rds")
+```
+
+```{r}
+LassoLowRisk <- LassoMtx$table[1,]
+LassoHighRisk <- LassoMtx$table[2,]
+rfLowRisk <- rfMtX$table[1,]
+rfHighRisk <- rfMtX$table[2,]
+gbmLowRisk <- gbmMtx$table[1,]
+gbmHighRisk <- gbmMtx$table[2,]
+NoInfo <- summary(factor(test$response))
+```
+
+## construct test matrices
+
+```{r}
+LowRisk <- rbind(NoInfo, LassoLowRisk, rfLowRisk, gbmLowRisk)
+HighRisk <- rbind(NoInfo,LassoHighRisk, rfHighRisk, gbmHighRisk)
+
+LRMTX <- matrix(data = LowRisk, nrow = 4, ncol = 2, byrow = F, dimnames = list(c("No Info", "L1REgression", "random forest", "generalized boosted"), c("no", "yes")))
+
+HRMTX <- matrix(data = HighRisk, nrow = 4, ncol = 2, byrow = F, dimnames = list(c("No Info", "L1REgression", "random forest", "generalized boosted"), c("no", "yes")))
+```
+
+```{r}
+LRMTX
+HRMTX
+```
+
+
+## chisquare tests
+### lowrisk
+```{r}
+chisq.test(LRMTX)
+chisq.test(LRMTX[-1,])
+
+
+```
+
+Using low risk predictions for the test set, all 3 models are statistically different from the no information model demostrating utility; the predictions made by the 3 models are not statistically different.
+
+```{r}
+LowRiskTable <- as.data.frame(LRMTX)
+n <- apply(LowRiskTable, 1, sum)
+LowRiskTable$N <- n
+LowRiskTable$FNPerCent <- 100*(LowRiskTable$yes/LowRiskTable$N)
+LowRiskTable$LowRiskPerCent <- LowRiskTable$N/129512
+
+write.csv(LowRiskTable, file = "SummaryLowRiskTable.csv")
+
+```
+
+### confusion matrix
+```{r}
+cm <- readRDS("gbmConfusMTX.rds")
+CM <- cm$table
+rval<- epi.tests(CM, conf.level = 0.95)
+rval
+```
+```{r}
+cmRF <- rfMtX$table
+rvalRF<- epi.tests(cmRF, conf.level = 0.95)
+rvalRF
+```
+```{r}
+cmLasso <- LassoMtx$table
+rvalLasso<- epi.tests(cmLasso, conf.level = 0.95)
+rvalLasso
+```
+
+
+
+### high risk predictions
+
+```{r}
+chisq.test(HRMTX)
+chisq.test(HRMTX[-1,])
+```
+The 3 models are not statistically different in predicting high risk patients
+
+
+```{r}
+HighRiskTable <- as.data.frame(HRMTX)
+n <- apply(HighRiskTable, 1, sum)
+HighRiskTable$N <- n
+HighRiskTable$TPPerCent <- 100*(HighRiskTable$yes/HighRiskTable$N)
+HighRiskTable$HighRiskPerCent <- HighRiskTable$N/129512
+HighRiskTable
+
+```
+
+write.csv(HighRiskTable, file = "SummaryHighRiskTable.csv")
+```
