@@ -1,2 +1,2 @@
-# SCHC-Trauma-Project
-Datasets and codes for the trauma project
+# SCHC-Trauma-DVT
+Codes for model development
